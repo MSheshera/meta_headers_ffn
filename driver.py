@@ -37,17 +37,16 @@ def pipeline_ctrl(train_path, test_path, map_path, check_dir,
             settings.categorical_mask)
         print('Train dataset transformed: {}'.format(train_x.shape))
 
-    mlp_clf = gen_utils.load_saved_model('/home/smysore/meta_headers/feed_fwd_nw/check_dir/mlp_untuned-norm-full.skmodel')
-    # # Train model
-    # mlp_clf = learning.train_def_model(train_x, train_y)
+    # Train model
+    mlp_clf = learning.train_def_model(train_x, train_y)
 
-    # # Save model to disk.
-    # model_name = os.path.join(check_dir, model_name+'.skmodel')
-    # gen_utils.save_model(mlp_clf, model_name)
+    # Save model to disk.
+    model_name = os.path.join(check_dir, model_name+'.skmodel')
+    gen_utils.save_model(mlp_clf, model_name)
     
     # Test on train data.
     predicted = mlp_clf.predict(train_x)
-    print('Train set evaluation:')
+    print('\nTrain set evaluation:')
     evaluate.evaluate_meta(train_y, predicted, desired_map)
 
     # idk if using this is good but giving it a shot.
@@ -55,7 +54,7 @@ def pipeline_ctrl(train_path, test_path, map_path, check_dir,
     del train_x
 
     # Read test data.
-    test_x, test_y, _ = gen_utils.read_data('/mnt/nfs/work1/mccallum/smysore/grotoap-dataset/project_subset/npy_out/21-77_test.npy', map_path, desired_labels)
+    test_x, test_y, _ = gen_utils.read_data(test_path, map_path, desired_labels)
     print('Test dataset: {}'.format(test_x.shape))
     # Map binary features to -1 or +1
     if transform_data:
@@ -70,8 +69,8 @@ def pipeline_ctrl(train_path, test_path, map_path, check_dir,
 
     # Test on test data.
     predicted = mlp_clf.predict(test_x)
-    print('Test set evaluation:')
-    evaluate.evaluate_meta(test_y, predicted, desired_map)    
+    print('\nTest set evaluation:')
+    evaluate.evaluate_meta(test_y, predicted, desired_map)
 
 def main():
     """
@@ -102,7 +101,7 @@ def main():
     
     # Call model with appropriate data.
     pipeline_ctrl(train_path, test_path, map_path, check_dir,
-        settings.desired_labels, 'mlp_untuned', cl_args.transform)
+        settings.desired_labels, 'mlp_untuned-norm-full-p3', cl_args.transform)
 
 if __name__ == '__main__':
     main()
