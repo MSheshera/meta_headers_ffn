@@ -6,35 +6,19 @@ x_coords, y_coords, page_ids, line_ids, zone_ids, place_score,
 department_score, university_score, person_score.
 """
 import os, sys, copy, errno, time
-import codecs, pprint, collections, pickle
+import codecs, pprint, collections, pickle, re, argparse
 import numpy as np
-import simstring, re
 from scipy import spatial
 # Make sure you can print utf-8 to the console if need be.
 sys.stdout=codecs.getwriter('utf-8')(sys.stdout)
 
+import simstring
 # XML parsing code.
 import parse_docs_sax as mpds
+import fe_settings as fes
 
-# Type of dataset you're creating.
-#dataset_str = 'test'
-# Top level GROTOAP directory.
-grotoap_dir_train = '/mnt/6EE804CEE804970D/Academics/Projects/meta_headers/Dataset/project_subset/train'
-grotoap_dir_test = '/mnt/6EE804CEE804970D/Academics/Projects/meta_headers/Dataset/project_subset/test'
-# Directory to write TFRecord files into.
-out_dir = '/mnt/6EE804CEE804970D/Academics/Projects/meta_headers/Dataset/npy_out'
-# Directories to which maps should be written.
-map_dir = './map_dir'
-# Directory with the simstring databases
-simstringdb_dir = './simstringdb'
-# How the x and y coordinates of the word should be binned.
-num_x_bins = 4
-num_y_bins = 4
-use_lexicons = True
-debug = False
-# Create a dataframe to which everything gets appended and then written to disk.
+# Create a list to which everything gets appended and then written to disk.
 features_list = list()
-# TODO: Update all comments to say that you're doing numpy and not TFRecords.
 
 ##########################################################
 #      Functions to help with feature extraction.        #
@@ -85,7 +69,7 @@ def score_string(word_text, dbname):
     Impliments the simstring matching. 
     Assumes the presence of the simstring databases.
     """
-    db = simstring.reader(os.path.join(simstringdb_dir, dbname))
+    db = simstring.reader(os.path.join(fes.simstringdb_dir, dbname))
     db.measure = simstring.cosine
     db.threshold = 0.6
     if db.retrieve(word_text.encode('utf-8')):
@@ -190,6 +174,7 @@ def process_tok(words_tl, label_map, shape_map,
     label = tar_word.label
     if label not in label_map:
         print("process_tok: Label {:s} not in label map; Adding.".format(label))
+        sys.stdout.flush()
         label_map[label] = len(label_map)+1
     intmapped_label[0] = label_map[label]
     # Form count to get class distribution.
@@ -233,20 +218,20 @@ def process_tok(words_tl, label_map, shape_map,
         zones[i] = zid
         lines[i] = lid
         # Lexicon matches
-        if use_lexicons:
+        if fes.use_lexicons:
             place_scores[i] = score_string(word.text, dbname='places.db')
             department_scores[i] = score_string(word.text, dbname='departments.db')
             university_scores[i] = score_string(word.text, dbname='universities.db')
             person_scores[i] = score_string(word.text, dbname='people.db')
 
     # Bin the x and y coordinates (4 bins from 0 to max x, y on page)
-    x_bins = np.linspace(min_x, max_x, num=num_x_bins)
+    x_bins = np.linspace(min_x, max_x, num=fes.num_x_bins)
     x_coords = np.digitize(x_coords, x_bins)
-    y_bins = np.linspace(min_y, max_y, num=num_y_bins)
+    y_bins = np.linspace(min_y, max_y, num=fes.num_y_bins)
     y_coords = np.digitize(y_coords, y_bins)
 
     # Print debug information
-    if debug:
+    if fes.debug:
         print('intmapped_shapes:',intmapped_shapes)
         print('word_lens:', word_lens)
         print('intmapped_label:', intmapped_label)
@@ -262,11 +247,12 @@ def process_tok(words_tl, label_map, shape_map,
         print('zones:', zones)
         print('lines:', lines)
         # lexicon matches
-        if use_lexicons:
+        if fes.use_lexicons:
             print('place_scores:', place_scores)
             print('department_scores:', department_scores)
             print('university_scores:', university_scores)
             print('person_scores:', person_scores)
+        sys.stdout.flush()
 
     # Serialize the example.
     serialize_example(intmapped_label,
@@ -356,7 +342,6 @@ def doc_to_example(in_docname, label_map, shape_map, label_distr):
     Make a given file into a set of examples to be written to a TFRecord 
     file.
     Input:
-        tfr_writer: The TFRecord writer.
         in_docname: The name of the .cxml file to process.
         out_dir: The output directory into which all TFRecord files
             are getting written to.
@@ -365,12 +350,12 @@ def doc_to_example(in_docname, label_map, shape_map, label_distr):
     # Everything only for the first page.
     doc_word_count = make_examples(doc.pages[0], label_map, shape_map, label_distr)
     print('doc_to_example: Done processing {:d} words from: {:s}'.format(doc_word_count, os.path.basename(in_docname)))
-    
+    sys.stdout.flush()
     return doc_word_count
 
 def dir_to_examples(in_dir, label_map, shape_map, label_distr):
     """
-    Make entire directory of TrueViz files into one tensorflow record.
+    Process directory of TrueViz files.
     """
     dir_file_count = 0
     dir_doc_word_count = 0
@@ -378,6 +363,7 @@ def dir_to_examples(in_dir, label_map, shape_map, label_distr):
     # TFRecord file.
     print('dir_to_examples: Converting files in directory {:s}'
         .format(os.path.basename(in_dir)))
+    sys.stdout.flush()
     for root, dirs, files in os.walk(in_dir):
         for file in files:
             if '.cxml' in file:
@@ -388,12 +374,13 @@ def dir_to_examples(in_dir, label_map, shape_map, label_distr):
     
     print('dir_to_examples: Done processing directory {:s} with {:d} files with {:f} words (tokens) on average'
         .format(os.path.basename(in_dir), dir_file_count, dir_doc_word_count/float(dir_file_count)))
+    sys.stdout.flush()
     return dir_file_count, dir_doc_word_count
 
 def grotoap_to_examples(grotoap_dir, out_dir, label_map, shape_map, label_distr):
     """
-    Make entire directory (containing sub directories) of grotoap data to 
-    TFRecords; one TFRecord file per sub-directory.
+    Process entire directory (containing sub directories) of grotoap data to 
+    npy binary;.
     Input:
         grotoap_dir: The top level directory of the dataset containing
             the 00, 01 etc named subdirectories.
@@ -404,6 +391,7 @@ def grotoap_to_examples(grotoap_dir, out_dir, label_map, shape_map, label_distr)
     try:
         os.makedirs(out_dir)
         print('grotoap_to_examples: Created {} for TFRecord files'.format(out_dir))
+        sys.stdout.flush()
     except OSError as ose:
         # For the case of *file* by name of out_dir existing
         if (not os.path.isdir(out_dir)) and (ose.errno == errno.EEXIST):
@@ -413,7 +401,9 @@ def grotoap_to_examples(grotoap_dir, out_dir, label_map, shape_map, label_distr)
         if ose.errno != errno.EEXIST:
             sys.stderr.write('OS ERROR: {:d}: {:s}: {:s}\n'.format(ose.
                 errno, ose.strerror, out_dir))
+            sys.stdout.flush()
             sys.exit(1)
+
     
     # Create list of output file names and list of directory basenames to 
     # read from.
@@ -440,19 +430,24 @@ def grotoap_to_examples(grotoap_dir, out_dir, label_map, shape_map, label_distr)
         .format(total_word_count))
     print('grotoap_to_examples: Processed {:d} files from {:d} directories'
         .format(file_count, len(in_subdirs)))
+    sys.stdout.flush()
     return out_fname
 
-def main(dataset_str):
+def feature_extract_pipeline(dataset_str):
     """
     Calls everything that needs to be from above.
     """
     # Check for the existance of the simstring databases.
     start_time = time.time()
-    if os.path.isdir(simstringdb_dir):
-        dep = os.path.isfile(os.path.join(simstringdb_dir, 'departments.db'))
-        pla = os.path.isfile(os.path.join(simstringdb_dir, 'places.db'))
-        peo = os.path.isfile(os.path.join(simstringdb_dir, 'people.db'))
-        uni = os.path.isfile(os.path.join(simstringdb_dir, 'universities.db'))
+    if os.path.isdir(fes.simstringdb_dir):
+        dep = os.path.isfile(os.path.join(fes.simstringdb_dir, 
+            'departments.db'))
+        pla = os.path.isfile(os.path.join(fes.simstringdb_dir,
+            'places.db'))
+        peo = os.path.isfile(os.path.join(fes.simstringdb_dir,
+            'people.db'))
+        uni = os.path.isfile(os.path.join(fes.simstringdb_dir,
+            'universities.db'))
         if not (dep and pla and peo and uni):
             sys.stderr.write('ERROR: Make sure simstring databases exist\n')
             sys.exit(-1)
@@ -464,25 +459,28 @@ def main(dataset_str):
     # If creating the train set, build the maps as you go.
     if dataset_str is 'train':
         print('main: Generating serialized {:s} set'.format(dataset_str))
+        sys.stdout.flush()
         label_map = dict()
         shape_map = dict()
         label_distr = collections.defaultdict(int)
-        out_fname = grotoap_to_examples(grotoap_dir_train, out_dir, label_map, shape_map, label_distr)        
+        out_fname = grotoap_to_examples(fes.grotoap_dir_train, fes.out_dir, label_map, shape_map, label_distr)        
         # Global variable features list has been updated. Now write it to disk.
         features_np = np.array(features_list)
-        out_fname = os.path.join(out_dir, out_fname+'_'+dataset_str+'.npy')
+        out_fname = os.path.join(fes.out_dir, out_fname+'_'+dataset_str+'.npy')
         np.save(file=out_fname, arr=features_np)
         print('main: Wrote {:s}; shape:{}'.format(out_fname, features_np.shape))
-
+        sys.stdout.flush()
 
         # Print out (inverted) maps for viewing pleasure :-P
         print('main: Label Map:')
         pprint.pprint({v: k for k, v in label_map.items()})
         print('\n')
+        sys.stdout.flush()
 
         print('main: Shape Map:')
         pprint.pprint({v: k for k, v in shape_map.items()})
         print('\n')
+        sys.stdout.flush()
 
         print('main: Label distribution:')
         label_sum = sum(label_distr.values())
@@ -490,27 +488,31 @@ def main(dataset_str):
             label_distr[k] = label_distr[k]/float(label_sum)
         pprint.pprint(dict(label_distr))
         print('\n')
+        sys.stdout.flush()
         
         # Save maps to disk
-        save_maps(map_dir, label_map, shape_map, label_distr, dataset_str+'-skl')
+        save_maps(fes.map_dir, label_map, shape_map, label_distr, dataset_str+'-skl')
     
     # If creating the test set use the existing maps.
     elif dataset_str in ['test', 'dev']:
         print('main: Generating serialized {:s} set'.format(dataset_str))
+        sys.stdout.flush()
 
-        label_map_path = os.path.join(map_dir,'label_map-train-skl.pd')
-        shape_map_path = os.path.join(map_dir,'shape_map-train-skl.pd')
+        label_map_path = os.path.join(fes.map_dir,'label_map-train-skl.pd')
+        shape_map_path = os.path.join(fes.map_dir,'shape_map-train-skl.pd')
         label_distr = collections.defaultdict(int)
         
         # Check for existance of maps
-        if os.path.isdir(map_dir):
+        if os.path.isdir(fes.map_dir):
             label = os.path.isfile(label_map_path)
             shape = os.path.isfile(shape_map_path)
             if not (label and shape):
                 sys.stderr.write('ERROR: Make sure maps from training set exist\n')
+                sys.stdout.flush()
                 sys.exit(-1)
         else:
             sys.stderr.write('ERROR: Make sure maps directory exists\n')
+            sys.stdout.flush()
             sys.exit(-1)
         
         # If it exists then read them in and pass them through.
@@ -520,10 +522,11 @@ def main(dataset_str):
         with open(shape_map_path, 'rb') as pf:
             shape_map = pickle.load(pf)
             print('main: Using existing {:s} shape map'.format(shape_map_path))
-        out_fname = grotoap_to_examples(grotoap_dir_test, out_dir, label_map, shape_map, label_distr)
+        sys.stdout.flush()
+        out_fname = grotoap_to_examples(fes.grotoap_dir_test, fes.out_dir, label_map, shape_map, label_distr)
         # Global variable features list has been updated. Now write it to disk.
         features_np = np.array(features_list)
-        out_fname = os.path.join(out_dir, out_fname+'_'+dataset_str+'.npy')
+        out_fname = os.path.join(fes.out_dir, out_fname+'_'+dataset_str+'.npy')
         np.save(file=out_fname, arr=features_np)
         print('main: Wrote {:s}; shape:{}'.format(out_fname, features_np.shape))
 
@@ -542,17 +545,14 @@ def main(dataset_str):
             label_distr[k] = label_distr[k]/float(label_sum)
         pprint.pprint(dict(label_distr))
         print('\n')
-
+        sys.stdout.flush()
 
         # Save maps to disk
-        save_maps(map_dir, label_map, shape_map, label_distr, dataset_str+'-skl')
+        save_maps(fes.map_dir, label_map, shape_map, label_distr, dataset_str+'-skl')
+
     end_time = time.time()
     print('main: Time taken: {:f}s'.format(end_time-start_time))
-
-
-##########################################################
-#          Just some code to check correctness etc       #
-##########################################################
+    sys.stdout.flush()
 
 def save_maps(map_dir, label_map, shape_map, label_distr, suffix_str):
     """
@@ -562,31 +562,45 @@ def save_maps(map_dir, label_map, shape_map, label_distr, suffix_str):
     try:
         os.makedirs(map_dir)
         print 'save_maps: Created {} for map files'.format(map_dir)
+        sys.stdout.flush()
     except OSError as ose:
-        # For the case of *file* by name of out_dir existing
-        if (not os.path.isdir(out_dir)) and (ose.errno == errno.EEXIST):
+        # For the case of *file* by name of map_dir existing
+        if (not os.path.isdir(map_dir)) and (ose.errno == errno.EEXIST):
             sys.stderr.write('IO ERROR: Could not create map directory\n')
             sys.exit(1)
         # If its something else you don't know; report it and exit.
         if ose.errno != errno.EEXIST:
             sys.stderr.write('OS ERROR: {:d}: {:s}: {:s}\n'.format(ose.
-                errno, ose.strerror, out_dir))
+                errno, ose.strerror, map_dir))
             sys.exit(1)
-    label_path = os.path.join(map_dir, 'label_map-'+suffix_str+'.pd')
+
+    # Save label and shape maps and label distributions.
+    label_path = os.path.join(map_dir, 'label_map-'+suffix_str+'-large.pd')
     with open(label_path,'wb') as lmf:
         pickle.dump(label_map, lmf)
     print('save_maps: Wrote: {:s}'.format(label_path))
 
-    shape_path = os.path.join(map_dir, 'shape_map-'+suffix_str+'.pd')
+    shape_path = os.path.join(map_dir, 'shape_map-'+suffix_str+'-large.pd')
     with open(shape_path,'wb') as smf:
         pickle.dump(shape_map, smf)
     print('save_maps: Wrote: {:s}'.format(shape_path))
 
-    labeld_path = os.path.join(map_dir, 'label_distr-'+suffix_str+'.pd')
+    labeld_path = os.path.join(map_dir, 'label_distr-'+suffix_str+'-large.pd')
     with open(labeld_path,'wb') as ldf:
         pickle.dump(label_distr, ldf)
     print('save_maps: Wrote: {:s}'.format(labeld_path))
-
+    sys.stdout.flush()
+    
 if __name__ == '__main__':
-    name = 'train'
-    main(name)
+    """
+    Parse command line arguments and call functions which do real work.
+    """
+    parser = argparse.ArgumentParser()
+    # Where to read data from if running on my laptop or the cluster.
+    parser.add_argument('-d', '--dataset',
+            choices=['train', 'test'],
+            required=True,
+            help='Tell me which dataset to create.')
+    cl_args = parser.parse_args()
+
+    feature_extract_pipeline(cl_args.dataset)
