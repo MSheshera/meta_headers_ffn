@@ -15,7 +15,7 @@ GROTOAP2: http://www.dlib.org/dlib/november14/tkaczyk/11tkaczyk.html
 
 `utils/*.py`: General IO utilities.
 
-`data_utils/feature_extract.py`: Windowing on time series and extraction of features.
+`/feat_extract/*.py`: Mollys xml parsing code; code to extract features from parsed xml and write to gigantic numpy matrices.
 
 `settings.py`: Contains global settings.
     
