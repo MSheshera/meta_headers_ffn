@@ -77,6 +77,9 @@ def evaluate_meta(ytrue, ypred, desired_map):
         print('Precision, Recall, F1 for ' + str(tag) + ': ' + str(tag_level_metrics[tag][0]) + ', ' + str(
             tag_level_metrics[tag][1]) + ', ' + str(tag_level_metrics[tag][2]))
         sys.stdout.flush()
+    # Return w_f1 so I can use it to do things with it. 
+    # Mostly model selection. :-P
+    return w_f1
 
 def evaluate_skl(ytrue, ypred, desired_map):
     """
