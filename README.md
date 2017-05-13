@@ -37,18 +37,18 @@ You mainly need to set output and input paths manually. Most other things happen
 automatically. All output directories get created if they dont exist (exceptions mentioned below).
 
 1. In `fe_settings.py`: Set the following variables:
- * `lexicon_dir`: to point to the directory with all the lexicon text files. 
- * `simstringdb_dir`: Path to the directory where you want the output simstring databases.
- * `grotoap_dir_train`: Top level GROTOAP train split directory. Should contain the numbered directories with the .cxml files in them. For example: ``grotoap_dir_train/00/*.cxml`` ``grotoap_dir_train/01/*.cxml`` etc.
- * `grotoap_dir_test`: Top level GROTOAP test split directory. Should contain the numbered directories with the .cxml files in them. For example: ``grotoap_dir_test/00/*.cxml`` ``grotoap_dir_test/01/*.cxml`` etc.
- * ``out_dir``: Directory to write extracted feature matrices (npy files) into.
- * ``map_dir``: Directories to which maps (what int value represents what label etc) should be written.
-2. In `fe_settings.py`: Set the following variables:
- * `l_train_path`: Full name to train npy file. Extracted in feature extraction run.
- * `l_dev_path`: Full name to dev npy file. Extracted in feature extraction run.
- * `l_test_path`: Full name to test npy file. Extracted in feature extraction run.
- * `l_map_path`: Directories from which to read maps for the labels.
- * `l_check_dir`: Chcekpoint directory. Directory where models should be saved. Direcory not automatically created if doesnt exist.
+    * `lexicon_dir`: to point to the directory with all the lexicon text files. 
+    * `simstringdb_dir`: Path to the directory where you want the output simstring databases.
+    * `grotoap_dir_train`: Top level GROTOAP train split directory. Should contain the numbered directories with the .cxml files in them. For example: ``grotoap_dir_train/00/*.cxml`` ``grotoap_dir_train/01/*.cxml`` etc.
+    * `grotoap_dir_test`: Top level GROTOAP test split directory. Should contain the numbered directories with the .cxml files in them. For example: ``grotoap_dir_test/00/*.cxml`` ``grotoap_dir_test/01/*.cxml`` etc.
+    * ``out_dir``: Directory to write extracted feature matrices (npy files) into.
+    * ``map_dir``: Directories to which maps (what int value represents what label etc) should be written.
+2. In `settings.py`: Set the following variables:
+    * `l_train_path`: Full name to train npy file. Extracted in feature extraction run.
+    * `l_dev_path`: Full name to dev npy file. Extracted in feature extraction run.
+    * `l_test_path`: Full name to test npy file. Extracted in feature extraction run.
+    * `l_map_path`: Directories from which to read maps for the labels.
+    * `l_check_dir`: Chcekpoint directory. Directory where models should be saved. Direcory not automatically created if doesnt exist.
  
 Example run:
 
