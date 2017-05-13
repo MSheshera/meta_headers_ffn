@@ -18,6 +18,8 @@ import parse_docs_sax as mpds
 import fe_settings as fes
 
 # Create a list to which everything gets appended and then written to disk.
+# This probably slows things down immensely because in the end you have a 
+# list which is about 1.5million items long.
 features_list = list()
 
 ##########################################################
@@ -433,7 +435,7 @@ def grotoap_to_examples(grotoap_dir, out_dir, label_map, shape_map, label_distr)
     sys.stdout.flush()
     return out_fname
 
-def feature_extract_pipeline(dataset_str):
+def main(dataset_str):
     """
     Calls everything that needs to be from above.
     """
@@ -457,7 +459,7 @@ def feature_extract_pipeline(dataset_str):
 
     # Create label and shape maps and call the whole thing.
     # If creating the train set, build the maps as you go.
-    if dataset_str is 'train':
+    if dataset_str == 'train':
         print('main: Generating serialized {:s} set'.format(dataset_str))
         sys.stdout.flush()
         label_map = dict()
@@ -494,7 +496,7 @@ def feature_extract_pipeline(dataset_str):
         save_maps(fes.map_dir, label_map, shape_map, label_distr, dataset_str+'-skl')
     
     # If creating the test set use the existing maps.
-    elif dataset_str in ['test', 'dev']:
+    elif dataset_str == ['test', 'dev']:
         print('main: Generating serialized {:s} set'.format(dataset_str))
         sys.stdout.flush()
 
@@ -603,4 +605,4 @@ if __name__ == '__main__':
             help='Tell me which dataset to create.')
     cl_args = parser.parse_args()
 
-    feature_extract_pipeline(cl_args.dataset)
+    main(cl_args.dataset)

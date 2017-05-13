@@ -262,12 +262,16 @@ def main():
     parser.add_argument('-a', '--action',
             choices=['def_model', 'select_model', 'named_model','tuned_model'],
             required=True,
-            help='What kind of pipeline should be run.')
+            help='What kind of pipeline should be run.'
+            '\ndef_model: Train near default model, save model, evaluate on train on test subsets.'
+            '\nselect_model: Run miltiple models and say which ones is best; saves all models to disk.'
+            '\ntuned_model: Train tuned model; save model to disk; evaluate on train set.'
+            '\nnamed_model: Load saved model and evaluate on train and test set.')
     cl_args = parser.parse_args()
 
     if cl_args.machine == 'local':
         train_path = settings.l_train_path
-        dev_path = settings.l_test_path
+        dev_path = settings.l_dev_path
         test_path = settings.l_test_path
         map_path = settings.l_map_path
         check_dir = settings.l_check_dir
@@ -278,19 +282,22 @@ def main():
         map_path = settings.s_map_path
         check_dir = settings.s_check_dir
     
-    # Do whats asked for; select best model, run train and test pipeline 
-    # for untuned model, train a tuned model or load a saved model and run 
-    # on test set.
+    # Do whats asked for; 
+    # Train many models and say which one is best.
     if cl_args.action == 'select_model':
         model_selection(train_path, dev_path, map_path, check_dir, 
             settings.desired_labels, cl_args.transform)
-    elif cl_args.action == 'untuned_model':
+    # Train the almost-default sklearn model.
+    elif cl_args.action == 'def_model':
         run_untuned_model(train_path, test_path, map_path, check_dir,
             settings.desired_labels, 'mlp_untuned-norm-full-p3', 
             cl_args.transform)
+    # Train the tuned model.
     elif cl_args.action == 'tuned_model':
         train_model(train_path, map_path, check_dir, settings.desired_labels, 
-            'mlp_hu210_al1-large', cl_args.transform)
+            'mlp_hu210_al1', cl_args.transform)
+    # Run a model saved on disk. Name of model needs to be specified.
+    # Replace 'mlp_hu210_al1' with name of model you want to run.
     elif cl_args.action == 'named_model':
         # TODO: Allow for name of model to be passed as argument.
         # http://stackoverflow.com/a/9506443/3262406
